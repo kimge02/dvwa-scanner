@@ -32,7 +32,38 @@ def generate_html_report(results, output_path="report.html"):
 <body>
 <h1>DVWA 취약점 스캔 리포트</h1>
 """]
+       # 전체 요약 통계
+    total = len(results)
+    total_vuln = sum(1 for r in results if r["detected"])
 
+    vuln_by_type = {}
+    for r in results:
+        vt = r["vuln_type"]
+        vuln_by_type.setdefault(vt, {"total": 0, "detected": 0})
+        vuln_by_type[vt]["total"] += 1
+        if r["detected"]:
+            vuln_by_type[vt]["detected"] += 1
+
+    low_vuln = sum(1 for r in results if r["security_level"] == "low" and r["detected"])
+    high_vuln = sum(1 for r in results if r["security_level"] == "high" and r["detected"])
+    low_total = sum(1 for r in results if r["security_level"] == "low")
+    if low_total > 0 and low_vuln > 0:
+        improvement = round((1 - high_vuln / low_vuln) * 100, 1)
+    else:
+        improvement = 0
+
+    html_parts.append(f'''
+    <div class="summary">
+        <div class="summary-box"><b>전체 스캔</b><br>{total}건 중 {total_vuln}건 취약점 발견</div>
+        <div class="summary-box"><b>Low → High 개선율</b><br>{improvement}% 감소</div>
+    </div>
+    <h2>취약점 종류별 요약</h2>
+    <table><tr><th>종류</th><th>탐지/전체</th><th>탐지율</th></tr>
+    ''')
+    for vt, counts in vuln_by_type.items():
+        rate = round(counts["detected"] / counts["total"] * 100, 1) if counts["total"] > 0 else 0
+        html_parts.append(f'<tr><td>{vt}</td><td>{counts["detected"]}/{counts["total"]}</td><td>{rate}%</td></tr>')
+    html_parts.append('</table>')	
     for level in levels:
         level_results = [r for r in results if r["security_level"] == level]
         if not level_results:
